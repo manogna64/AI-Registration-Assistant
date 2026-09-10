@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Registration Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0E1B1C;
+    --panel:#132524;
+    --panel-2:#16302E;
+    --line:rgba(237,234,227,0.12);
+    --paper:#EDEAE3;
+    --paper-dim:#B9C4C1;
+    --mint:#4ECFA0;
+    --mint-dim:#2E7A62;
+    --amber:#D9A441;
+    --err:#E2725B;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--ink);
+    color:var(--paper);
+    font-family:'IBM Plex Sans',sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:28px 16px;
+  }
+  .app{
+    width:100%;
+    max-width:920px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:16px;
+    overflow:hidden;
+    box-shadow:0 30px 60px rgba(0,0,0,0.35);
+  }
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:18px 24px;
+    border-bottom:1px solid var(--line);
+  }
+  .topbar h1{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:15px;
+    font-weight:600;
+    letter-spacing:0.02em;
+    margin:0;
+    color:var(--paper);
+  }
+  .topbar h1 span{color:var(--mint);}
+  .status{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    color:var(--paper-dim);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--mint);
+    box-shadow:0 0 0 3px rgba(78,207,160,0.18);
+  }
+  .body{
+    display:grid;
+    grid-template-columns:220px 1fr;
+  }
+  @media (max-width:680px){
+    .body{grid-template-columns:1fr;}
+    .steps{
+      display:flex;
+      overflow-x:auto;
+      border-right:none;
+      border-bottom:1px solid var(--line);
+      padding:14px 16px;
+      gap:18px;
+    }
+    .steps h2{display:none;}
+    .step{flex:0 0 auto;flex-direction:column;text-align:center;gap:6px;font-size:11px;}
+  }
+  .steps{
+    border-right:1px solid var(--line);
+    padding:20px 18px;
+    background:var(--panel-2);
+  }
+  .steps h2{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.06em;
+    color:var(--paper-dim);
+    margin:0 0 16px 0;
+    font-weight:500;
+  }
+  .step{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 0;
+    font-size:13px;
+    color:var(--paper-dim);
+  }
+  .step .mark{
+    width:18px;height:18px;
+    border-radius:50%;
+    border:1.5px solid var(--paper-dim);
+    display:flex;align-items:center;justify-content:center;
+    font-size:10px;
+    flex-shrink:0;
+  }
+  .step.done{color:var(--paper);}
+  .step.done .mark{
+    background:var(--mint);
+    border-color:var(--mint);
+    color:var(--ink);
+  }
+  .step.active{color:var(--mint);}
+  .step.active .mark{border-color:var(--mint);color:var(--mint);}
+
+  .chat-wrap{
+    display:flex;
+    flex-direction:column;
+    height:560px;
+  }
+  .messages{
+    flex:1;
+    overflow-y:auto;
+    padding:22px 24px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  .msg{
+    max-width:78%;
+    padding:11px 14px;
+    border-radius:var(--radius);
+    font-size:14px;
+    line-height:1.5;
+    white-space:pre-line;
+  }
+  .msg.bot{
+    align-self:flex-start;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-top-left-radius:2px;
+  }
+  .msg.user{
+    align-self:flex-end;
+    background:var(--mint);
+    color:#0A1615;
+    border-top-right-radius:2px;
+    font-weight:500;
+  }
+  .msg.err{
+    align-self:flex-start;
+    background:rgba(226,114,91,0.12);
+    border:1px solid rgba(226,114,91,0.4);
+    color:#F3C6BB;
+  }
+  .msg .label{
+    display:block;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px;
+    letter-spacing:0.05em;
+    opacity:0.6;
+    margin-bottom:4px;
+  }
+  .chips{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    padding:0 24px 12px 24px;
+  }
+  .chip{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    padding:6px 12px;
+    border:1px solid var(--mint-dim);
+    color:var(--mint);
+    border-radius:100px;
+    cursor:pointer;
+    background:transparent;
+    transition:background 0.15s ease;
+  }
+  .chip:hover{background:rgba(78,207,160,0.1);}
+  form.inputbar{
+    display:flex;
+    gap:10px;
+    padding:16px 24px 20px 24px;
+    border-top:1px solid var(--line);
+  }
+  .inputbar input{
+    flex:1;
+    background:var(--ink);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:11px 14px;
+    color:var(--paper);
+    font-family:'IBM Plex Sans',sans-serif;
+    font-size:14px;
+  }
+  .inputbar input:focus{
+    outline:none;
+    border-color:var(--mint-dim);
+  }
+  .inputbar button{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+    background:var(--mint);
+    color:#0A1615;
+    border:none;
+    border-radius:8px;
+    padding:0 20px;
+    cursor:pointer;
+    font-weight:600;
+  }
+  .inputbar button:disabled{
+    opacity:0.4;
+    cursor:not-allowed;
+  }
+  .inputbar button.restart{
+    background:transparent;
+    color:var(--paper-dim);
+    border:1px solid var(--line);
+    font-weight:500;
+  }
+  ::-webkit-scrollbar{width:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px;}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="topbar">
+    <h1>AI <span>Registration</span> Assistant</h1>
+    <div class="status"><span class="dot"></span>Live session</div>
+  </div>
+
+  <div class="body">
+    <nav class="steps" id="steps">
+      <h2>Registration steps</h2>
+    </nav>
+
+    <div class="chat-wrap">
+      <div class="messages" id="messages"></div>
+      <div class="chips" id="chips"></div>
+      <form class="inputbar" id="inputbar">
+        <input id="userInput" type="text" placeholder="Type your message..." autocomplete="off" />
+        <button type="submit" id="sendBtn">Send</button>
+        <button type="button" class="restart" id="restartBtn">Restart</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- Intent definitions (mirrors keyword-pattern approach) ----------
+const INTENTS = {
+  greeting: { patterns: ['hi','hello','hey','good morning','good afternoon'] },
+  help:     { patterns: ['help','support','assist','guide','stuck'] },
+  thanks:   { patterns: ['thank','thanks','appreciate'] },
+  restart:  { patterns: ['restart','start over','reset'] }
+};
+
+function classifyIntent(text){
+  const lower = text.toLowerCase();
+  for(const [intent, data] of Object.entries(INTENTS)){
+    for(const p of data.patterns){
+      if(lower.includes(p)) return intent;
+    }
+  }
+  return 'unknown';
+}
+
+// simple entity extraction (mirrors regex approach for name/email)
+function extractEmail(text){
+  const m = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+  return m ? m[0] : null;
+}
+
+// ---------- Registration flow ----------
+const STEPS = [
+  { key:'name',       label:'Full name' },
+  { key:'email',       label:'Email address' },
+  { key:'field',       label:'Field of study' },
+  { key:'experience',  label:'Programming experience' },
+  { key:'confirm',     label:'Confirm & submit' }
+];
+
+const state = {
+  stepIndex: 0,
+  data: { name:'', email:'', field:'', experience:'' },
+  awaitingConfirm: false,
+  done: false
+};
+
+const messagesEl = document.getElementById('messages');
+const stepsEl = document.getElementById('steps');
+const chipsEl = document.getElementById('chips');
+const form = document.getElementById('inputbar');
+const input = document.getElementById('userInput');
+
+function renderSteps(){
+  stepsEl.innerHTML = '<h2>Registration steps</h2>';
+  STEPS.forEach((s, i) => {
+    const div = document.createElement('div');
+    let cls = 'step';
+    if(state.done || i < state.stepIndex) cls += ' done';
+    else if(i === state.stepIndex) cls += ' active';
+    div.className = cls;
+    const mark = document.createElement('span');
+    mark.className = 'mark';
+    mark.textContent = (state.done || i < state.stepIndex) ? '✓' : (i+1);
+    div.appendChild(mark);
+    const text = document.createElement('span');
+    text.textContent = s.label;
+    div.appendChild(text);
+    stepsEl.appendChild(div);
+  });
+}
+
+function addMessage(text, who, label){
+  const div = document.createElement('div');
+  div.className = 'msg ' + who;
+  if(label){
+    const l = document.createElement('span');
+    l.className = 'label';
+    l.textContent = label;
+    div.appendChild(l);
+  }
+  const body = document.createElement('div');
+  body.textContent = text;
+  div.appendChild(body);
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function botSay(text){ addMessage(text, 'bot', 'Assistant'); }
+function userSay(text){ addMessage(text, 'user'); }
+function errSay(text){ addMessage(text, 'err', 'Validation'); }
+
+function setChips(options){
+  chipsEl.innerHTML = '';
+  options.forEach(opt => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip';
+    b.textContent = opt;
+    b.onclick = () => { input.value = opt; form.requestSubmit(); };
+    chipsEl.appendChild(b);
+  });
+}
+
+function currentStepKey(){
+  return STEPS[state.stepIndex] ? STEPS[state.stepIndex].key : null;
+}
+
+function askCurrentStep(){
+  renderSteps();
+  const key = currentStepKey();
+  setChips([]);
+  if(key === 'name'){
+    botSay("Let's get you registered. What's your full name?");
+  } else if(key === 'email'){
+    botSay(`Nice to meet you, ${state.data.name}! What's your email address?`);
+  } else if(key === 'field'){
+    botSay("Thanks — that's recorded. What's your field of study? (e.g. Computer Science, IT, ECE)");
+  } else if(key === 'experience'){
+    botSay("Got it. How would you describe your programming experience?");
+    setChips(['Beginner','Intermediate','Advanced']);
+  } else if(key === 'confirm'){
+    const d = state.data;
+    botSay(
+`Please confirm your details:
+
+Name: ${d.name}
+Email: ${d.email}
+Field of study: ${d.field}
+Experience: ${d.experience}
+
+Type "yes" to submit, or "no" to restart.`
+    );
+    setChips(['Yes, submit','No, restart']);
+    state.awaitingConfirm = true;
+  }
+}
+
+function completeRegistration(){
+  state.done = true;
+  renderSteps();
+  setChips([]);
+  botSay(`Registration confirmed! 🎉 Welcome aboard, ${state.data.name} — a confirmation would normally be emailed to ${state.data.email}. Good luck with the internship!`);
+  input.disabled = true;
+  document.getElementById('sendBtn').disabled = true;
+}
+
+function resetFlow(silent){
+  state.stepIndex = 0;
+  state.data = { name:'', email:'', field:'', experience:'' };
+  state.awaitingConfirm = false;
+  state.done = false;
+  input.disabled = false;
+  document.getElementById('sendBtn').disabled = false;
+  if(!silent){
+    messagesEl.innerHTML = '';
+    botSay("Hello! Welcome to the AI & Data Science Internship registration. Say \"hi\" or just tell me your name to get started.");
+  }
+  renderSteps();
+  setChips([]);
+}
+
+function handleConfirmAnswer(text){
+  const lower = text.toLowerCase();
+  if(lower.includes('yes')){
+    completeRegistration();
+  } else if(lower.includes('no')){
+    botSay("No problem — let's start over.");
+    resetFlow(true);
+    askCurrentStep();
+  } else {
+    errSay('Please reply "yes" to submit or "no" to restart.');
+  }
+}
+
+function handleStepAnswer(key, text){
+  if(key === 'name'){
+    if(text.trim().length < 2){
+      errSay("That doesn't look like a full name — could you type it again?");
+      return;
+    }
+    state.data.name = text.trim();
+  } else if(key === 'email'){
+    const email = extractEmail(text);
+    if(!email){
+      errSay("That doesn't look like a valid email address (e.g. name@example.com) — please try again.");
+      return;
+    }
+    state.data.email = email;
+  } else if(key === 'field'){
+    if(text.trim().length < 2){
+      errSay("Please tell me your field of study.");
+      return;
+    }
+    state.data.field = text.trim();
+  } else if(key === 'experience'){
+    if(text.trim().length < 2){
+      errSay("Please describe your experience level (e.g. Beginner, Intermediate, Advanced).");
+      return;
+    }
+    state.data.experience = text.trim();
+  }
+  state.stepIndex += 1;
+  askCurrentStep();
+}
+
+form.addEventListener('submit', function(e){
+  e.preventDefault();
+  const text = input.value.trim();
+  if(!text || state.done) return;
+  userSay(text);
+  input.value = '';
+
+  const intent = classifyIntent(text);
+
+  if(intent === 'restart' && !state.awaitingConfirm){
+    botSay("Sure — restarting your registration.");
+    resetFlow(true);
+    askCurrentStep();
+    return;
+  }
+  if(intent === 'thanks'){
+    botSay("You're welcome! Let's continue whenever you're ready.");
+    return;
+  }
+  if(intent === 'help'){
+    botSay("I'm guiding you through registration: name → email → field of study → experience → confirmation. Just answer each question and I'll take care of the rest.");
+    return;
+  }
+  if(intent === 'greeting' && state.stepIndex === 0 && !state.data.name){
+    botSay("Hey there! Let's begin — what's your full name?");
+    return;
+  }
+
+  if(state.awaitingConfirm){
+    handleConfirmAnswer(text);
+    return;
+  }
+
+  const key = currentStepKey();
+  if(key){
+    handleStepAnswer(key, text);
+  }
+});
+
+document.getElementById('restartBtn').addEventListener('click', function(){
+  resetFlow(false);
+});
+
+// initial greeting
+resetFlow(false);
+</script>
+
+</body>
+</html>
